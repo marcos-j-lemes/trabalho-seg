@@ -10,7 +10,7 @@ Configuração dockerfile:
 [imagem docker](./mimtproxy/dockerfile)
 
 ```bash
-
+   18  cd mitmproxy
    19  docker build -t mitmweb .
    20  docker run -it --rm   --name mitmweb   -p 8080:8080   -p 8081:8081   -v $(pwd):/workspace   mitmweb
    21  history
