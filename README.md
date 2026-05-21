@@ -31,9 +31,41 @@ http://0.0.0.0:8081/?token=a723fff611f2d3d81ad03ef845716f4d
 
 ## Servidor 
 
-Seria interessante rodar um api,
+### API FastAPI
 
-mas criar um index.html, e rode o comando para subir:
+A API recebe um texto via `POST /texto` e retorna um JSON com o texto original,
+uma resposta e o horario do recebimento.
+
+Configuracao facil do IP/porta da API:
+
+- Arquivo: `api/config.py`
+- Padrao: `API_HOST = "0.0.0.0"` e `API_PORT = 8000`
+
+```bash
+cd api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 main.py
+```
+
+Para testar direto:
+
+```bash
+curl -X POST http://127.0.0.1:8000/texto \
+  -H "Content-Type: application/json" \
+  -d '{"texto":"Mensagem de teste"}'
+```
+
+### Front
+
+O front permite trocar o IP e a porta da API pela tela. Tambem da para trocar
+os valores padrao no comeco do script em `servidor/index.html`:
+
+- `DEFAULT_API_HOST`
+- `DEFAULT_API_PORT`
+
+Para subir:
 
 ```bash
 
@@ -49,6 +81,12 @@ index.html
  python3 -m http.server 5500
 
 
+```
+
+Acesse:
+
+```text
+http://127.0.0.1:5500
 ```
 
 

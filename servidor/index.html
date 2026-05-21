@@ -1,13 +1,300 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Demo MITMProxy</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f7f7f4;
+            --panel: #ffffff;
+            --ink: #202124;
+            --muted: #5f6368;
+            --line: #d7d9dc;
+            --accent: #0b57d0;
+            --accent-hover: #0842a0;
+            --ok: #137333;
+            --error: #b3261e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        main {
+            width: min(920px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0;
+        }
+
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: clamp(28px, 5vw, 44px);
+            line-height: 1.05;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .status {
+            min-width: 120px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--muted);
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(260px, 320px) 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        section {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 18px;
+        }
+
+        h2 {
+            margin: 0 0 14px;
+            font-size: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            margin-top: 6px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--ink);
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        button {
+            width: 100%;
+            border: 0;
+            border-radius: 6px;
+            padding: 11px 14px;
+            background: var(--accent);
+            color: white;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.7;
+        }
+
+        .endpoint {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #eef3fd;
+            color: #174ea6;
+            overflow-wrap: anywhere;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 13px;
+        }
+
+        .result {
+            min-height: 130px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fafafa;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-family: Consolas, Monaco, monospace;
+        }
+
+        .ok {
+            color: var(--ok);
+        }
+
+        .error {
+            color: var(--error);
+        }
+
+        @media (max-width: 760px) {
+            header,
+            .layout {
+                display: block;
+            }
+
+            .status {
+                margin-top: 14px;
+            }
+
+            section + section {
+                margin-top: 16px;
+            }
+        }
+    </style>
 </head>
 <body>
+    <main>
+        <header>
+            <div>
+                <h1>Demo MITMProxy</h1>
+                <p>Envie um texto para a API e veja a requisicao passando pelo proxy.</p>
+            </div>
+            <div class="status" id="status">Pronto</div>
+        </header>
 
-    <h1>Hello, WOrl</h1>
-    
+        <div class="layout">
+            <section>
+                <h2>Configuracao da API</h2>
+                <label>
+                    IP da API
+                    <input id="apiHost" value="127.0.0.1" autocomplete="off">
+                </label>
+                <label>
+                    Porta
+                    <input id="apiPort" value="8000" inputmode="numeric" autocomplete="off">
+                </label>
+                <div class="endpoint" id="endpoint"></div>
+            </section>
+
+            <section>
+                <h2>Enviar texto</h2>
+                <form id="form">
+                    <label>
+                        Texto
+                        <textarea id="texto">Mensagem de teste para aparecer no mitmproxy</textarea>
+                    </label>
+                    <button id="sendButton" type="submit">Enviar para API</button>
+                </form>
+
+                <h2 style="margin-top: 18px;">Resposta</h2>
+                <pre class="result" id="result">A resposta da API aparece aqui.</pre>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const CONFIG_KEY = "mitm-demo-api-config";
+
+        // Configuracao facil para a apresentacao:
+        // troque estes valores antes de abrir o HTML, ou use os campos na tela.
+        const DEFAULT_API_HOST = "127.0.0.1";
+        const DEFAULT_API_PORT = "8080";
+
+        const apiHostInput = document.querySelector("#apiHost");
+        const apiPortInput = document.querySelector("#apiPort");
+        const endpointEl = document.querySelector("#endpoint");
+        const statusEl = document.querySelector("#status");
+        const form = document.querySelector("#form");
+        const textoInput = document.querySelector("#texto");
+        const resultEl = document.querySelector("#result");
+        const sendButton = document.querySelector("#sendButton");
+
+        function loadConfig() {
+            const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || "{}");
+            apiHostInput.value = saved.host || DEFAULT_API_HOST;
+            apiPortInput.value = saved.port || DEFAULT_API_PORT;
+            updateEndpoint();
+        }
+
+        function apiBaseUrl() {
+            return `http://${apiHostInput.value.trim()}:${apiPortInput.value.trim()}`;
+        }
+
+        function updateEndpoint() {
+            const config = {
+                host: apiHostInput.value.trim(),
+                port: apiPortInput.value.trim(),
+            };
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+            endpointEl.textContent = `${apiBaseUrl()}/texto`;
+        }
+
+        async function sendText(event) {
+            event.preventDefault();
+            updateEndpoint();
+
+            statusEl.textContent = "Enviando...";
+            statusEl.className = "status";
+            sendButton.disabled = true;
+            resultEl.textContent = "Aguardando resposta...";
+
+            try {
+                const response = await fetch(`${apiBaseUrl()}/texto`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        texto: textoInput.value,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(JSON.stringify(data, null, 2));
+                }
+
+                statusEl.textContent = "Sucesso";
+                statusEl.className = "status ok";
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                statusEl.textContent = "Erro";
+                statusEl.className = "status error";
+                resultEl.textContent = error.message;
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        apiHostInput.addEventListener("input", updateEndpoint);
+        apiPortInput.addEventListener("input", updateEndpoint);
+        form.addEventListener("submit", sendText);
+
+        loadConfig();
+    </script>
 </body>
 </html>
